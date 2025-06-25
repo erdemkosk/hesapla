@@ -1,0 +1,530 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>İşlem Tablosu</title>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+  <style>
+    body { font-family: Arial, sans-serif; background: #f7f7f7; }
+    .container { max-width: 1100px; margin: 40px auto; background: #fff; padding: 32px 24px; border-radius: 8px; box-shadow: 0 2px 8px #0001; }
+    h1 { text-align: center; color: #333; }
+    .summary { display: flex; justify-content: center; gap: 32px; margin-bottom: 18px; }
+    .summary-box { background: #f3f3ff; border-radius: 8px; padding: 18px 32px; font-size: 1.2rem; color: #333; box-shadow: 0 1px 4px #0001; text-align: center; }
+    .charts { display: flex; flex-wrap: wrap; gap: 32px; justify-content: center; margin-bottom: 32px; }
+    .chart-box { background: #fafaff; border-radius: 8px; box-shadow: 0 1px 4px #0001; padding: 18px 18px 8px 18px; max-width: 350px; min-width: 280px; min-height: 180px; }
+    .chart-title { text-align: center; font-size: 1rem; margin-bottom: 8px; color: #444; }
+    .type-totals { margin-top: 12px; font-size: 1rem; color: #444; text-align: center; display: flex; flex-wrap: wrap; justify-content: center; gap: 8px; }
+    .type-totals span { display: inline-block; margin: 0; background: #f3f3ff; border-radius: 4px; padding: 4px 10px; white-space: nowrap; }
+    .search-bar { text-align: right; margin-bottom: 10px; }
+    .search-bar input { padding: 6px 10px; border: 1px solid #ccc; border-radius: 4px; font-size: 1rem; }
+    table { width: 100%; border-collapse: collapse; margin-top: 12px; }
+    th, td { padding: 10px 8px; border-bottom: 1px solid #eee; text-align: left; }
+    th { background: #6c63ff; color: #fff; cursor: pointer; user-select: none; }
+    th.sorted-asc::after { content: ' \25B2'; }
+    th.sorted-desc::after { content: ' \25BC'; }
+    tr:nth-child(even) { background: #f3f3f3; }
+    .back { display: inline-block; margin-bottom: 18px; color: #6c63ff; text-decoration: none; font-weight: bold; }
+    .back:hover { text-decoration: underline; }
+    .highlight { background: #ffe0e0 !important; }
+    .theme-toggle {
+      position: absolute;
+      top: 24px;
+      right: 32px;
+      width: 48px;
+      height: 48px;
+      background: #f3f3f3;
+      border: none;
+      border-radius: 50%;
+      font-size: 2.1rem;
+      cursor: pointer;
+      z-index: 10;
+      color: #f7b801;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      box-shadow: 0 2px 8px #0002;
+      transition: background 0.2s, color 0.2s;
+    }
+    .theme-toggle:hover { background: #ececec; color: #ffb300; }
+    body.dark-theme .theme-toggle {
+      background: #23233a;
+      color: #ffe066;
+      box-shadow: 0 2px 12px #0006;
+    }
+    body.dark-theme .theme-toggle:hover { background: #35355a; color: #fff176; }
+    body.dark-theme { background: #22223a; color: #f3f3f3; }
+    body.dark-theme .container { background: #282846; color: #f3f3f3; }
+    body.dark-theme .summary-box { background: #2d2d4d; color: #fff; box-shadow: 0 1px 8px #0008; }
+    body.dark-theme .chart-box { background: #23233a; color: #fff; box-shadow: 0 1px 8px #0008; }
+    body.dark-theme .type-totals span { background: #2d2d4d; color: #fff !important; }
+    body.dark-theme th { background: #7c7cff; color: #fff; font-weight: bold; }
+    body.dark-theme tr:nth-child(even) { background: #23233a; }
+    body.dark-theme tr:nth-child(odd) { background: #282846; }
+    body.dark-theme .back { color: #b3b0ff; }
+    body.dark-theme .back:hover { color: #fff; }
+    body.dark-theme .summary-box strong, body.dark-theme .chart-title { color: #fff; }
+    body.dark-theme .search-bar input { background: #23233a; color: #fff; border: 1px solid #444; }
+    body.dark-theme #maxDayInfo { color: #ffb3b3 !important; }
+    body.dark-theme #downloadPdfBtn { background: #2d2d4d; color: #fff; border: 1px solid #7c7cff; }
+    body.dark-theme #downloadPdfBtn:hover { background: #7c7cff; color: #fff; }
+    body.dark-theme td, body.dark-theme th { color: #fff; }
+    body.dark-theme .type-totals { color: #fff; }
+    body.dark-theme .highlight { background: #3a2d2d !important; color: #fff; }
+    body.dark-theme #dateRangeBox { color: #fff !important; font-weight: bold; }
+    body.dark-theme h1 { color: #fff !important; text-shadow: 0 2px 8px #0008; }
+    .heatmap {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(28px, 1fr));
+      gap: 6px;
+      margin: 0 0 0 0;
+      justify-items: center;
+      align-items: center;
+      padding: 4px 0 2px 0;
+    }
+    .heatmap-cell {
+      width: 28px;
+      height: 28px;
+      border-radius: 10px;
+      background: linear-gradient(135deg, #ede7ff, #6c63ff 80%);
+      transition: background 0.2s, box-shadow 0.2s, transform 0.13s;
+      cursor: pointer;
+      position: relative;
+      box-shadow: 0 2px 8px #6c63ff22;
+      border: 1.5px solid #f3f3ff;
+    }
+    .heatmap-cell:hover {
+      transform: scale(1.18);
+      z-index: 2;
+      box-shadow: 0 4px 18px #6c63ff44;
+      border: 1.5px solid #6c63ff;
+    }
+    .heatmap-tooltip {
+      position: fixed;
+      background: #232336;
+      color: #fff;
+      font-size: 1rem;
+      padding: 12px 18px;
+      border-radius: 10px;
+      min-width: 180px;
+      max-width: 340px;
+      box-shadow: 0 4px 24px #0005;
+      z-index: 9999;
+      pointer-events: none;
+      opacity: 0.98;
+      text-align: left;
+      font-family: inherit;
+      font-weight: 400;
+      line-height: 1.5;
+      display: none;
+      transition: opacity 0.13s;
+      white-space: normal;
+    }
+    .heatmap-tooltip b { color: #ffe066; font-weight: 700; }
+    .heatmap-tooltip i { color: #b3b0ff; font-style: normal; }
+    .heatmap-tooltip .heatmap-type { color: #7c7cff; font-weight: 600; }
+    @media (max-width: 600px) {
+      .heatmap-tooltip { font-size: 0.95rem; min-width: 120px; max-width: 98vw; padding: 8px 8px; }
+    }
+  </style>
+</head>
+<body>
+  <button class="theme-toggle" id="themeToggle" title="Tema Değiştir">🌙</button>
+  <div class="container">
+    <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 0;">
+      <a href="/" class="back">&larr; Başka bir PDF yükle</a>
+      <button id="downloadPdfBtn" style="background:#6c63ff; color:#fff; border:none; border-radius:6px; padding:8px 18px; font-size:1rem; cursor:pointer;">PDF olarak indir</button>
+    </div>
+    <div id="dateRangeBox" style="text-align:center; margin: 0 0 18px 0; font-size:1.1rem; color:#444; font-weight:bold;"></div>
+    <h1>İşlemler</h1>
+    <div id="summarySection">
+      <div class="summary">
+        <div class="summary-box">
+          Toplam harcama<br>
+          <strong id="totalExpense">0 TL</strong>
+        </div>
+        <div class="summary-box">
+          Toplam gelen para<br>
+          <strong id="totalIncome">0 TL</strong>
+        </div>
+        <div class="summary-box">
+          Toplam işlem<br>
+          <strong><%= transactions.length %></strong>
+        </div>
+      </div>
+      <div class="charts">
+        <div class="chart-box">
+          <div class="chart-title">Günlük Toplam Harcama</div>
+          <canvas id="dailyChart" width="350" height="180"></canvas>
+          <div id="maxDayInfo" style="font-size:1.1rem; color:#c00; text-align:center; margin-top:18px;"></div>
+          <div style="margin-top:18px;">
+            <div class="chart-title" style="margin-bottom:8px; font-size:1.08rem;">Isı Haritası</div>
+            <div id="heatmap" class="heatmap"></div>
+          </div>
+        </div>
+        <div class="chart-box">
+          <div class="chart-title">Harcama Türlerine Göre Dağılım</div>
+          <canvas id="typeChart" width="180" height="140"></canvas>
+          <div class="type-totals" id="typeTotals"></div>
+        </div>
+      </div>
+    </div>
+    <div id="tableSection">
+      <div class="search-bar">
+        <input type="text" id="searchInput" placeholder="Ara..." />
+      </div>
+      <table id="transactionsTable">
+        <thead>
+          <tr>
+            <th data-key="date">Tarih</th>
+            <th data-key="type">Tür</th>
+            <th data-key="description">Açıklama</th>
+            <th data-key="amount">Tutar</th>
+          </tr>
+        </thead>
+        <tbody>
+          <% transactions.forEach(t => { %>
+            <tr>
+              <td><%= t.date %></td>
+              <td><%= t.type %></td>
+              <td><%= t.description %></td>
+              <td><%= t.amount %></td>
+            </tr>
+          <% }) %>
+        </tbody>
+      </table>
+    </div>
+  </div>
+  <script>
+    // Verileri JS array'ine göm
+    const transactions = <%- JSON.stringify(transactions) %>;
+
+    // Tarih aralığını bul ve göster
+    if (transactions.length > 0) {
+      const dates = transactions.map(t => t.date).sort((a,b) => {
+        const toISO = s => s.split('.').reverse().join('-');
+        return toISO(a) < toISO(b) ? -1 : 1;
+      });
+      const minDate = dates[0];
+      const maxDate = dates[dates.length-1];
+      document.getElementById('dateRangeBox').innerText = `Rapor Tarih Aralığı: ${minDate} - ${maxDate}`;
+    }
+
+    // Toplam harcama ve toplam gelen para
+    let totalExpense = 0, totalIncome = 0;
+    transactions.forEach(t => {
+      const amount = parseFloat(t.amount);
+      if (amount < 0) totalExpense += amount;
+      if (amount > 0) totalIncome += amount;
+    });
+    document.getElementById('totalExpense').innerText = `${Math.abs(totalExpense).toLocaleString('tr-TR', {minimumFractionDigits:2, maximumFractionDigits:2})} TL`;
+    document.getElementById('totalIncome').innerText = `${totalIncome.toLocaleString('tr-TR', {minimumFractionDigits:2, maximumFractionDigits:2})} TL`;
+
+    // Günlük toplam harcama (sadece negatif amount)
+    const dailyTotals = {};
+    transactions.forEach(t => {
+      const date = t.date;
+      const amount = parseFloat(t.amount);
+      if (amount < 0) {
+        dailyTotals[date] = (dailyTotals[date] || 0) + amount;
+      }
+    });
+    const dailyLabels = Object.keys(dailyTotals).sort((a,b) => {
+      const toISO = s => s.split('.').reverse().join('-');
+      return toISO(a) < toISO(b) ? -1 : 1;
+    });
+    const dailyData = dailyLabels.map(d => Math.abs(dailyTotals[d]));
+
+    // Harcama türüne göre dağılım (hem harcama hem gelir)
+    const typeTotals = {};
+    transactions.forEach(t => {
+      const type = t.type;
+      const amount = parseFloat(t.amount);
+      typeTotals[type] = (typeTotals[type] || 0) + amount;
+    });
+    const typeLabels = Object.keys(typeTotals);
+    const typeData = typeLabels.map(t => Math.abs(typeTotals[t]));
+
+    // Pie chart altına her tür için toplamı yaz
+    const typeTotalsDiv = document.getElementById('typeTotals');
+    typeLabels.forEach((type, i) => {
+      const val = typeTotals[type];
+      const isExpense = val < 0;
+      const sign = isExpense ? '-' : '+';
+      const color = isExpense ? '#c00' : '#090';
+      typeTotalsDiv.innerHTML += `<span style="color:${color}">${type}: ${sign} ${Math.abs(val).toLocaleString('tr-TR', {minimumFractionDigits:2, maximumFractionDigits:2})} TL</span>`;
+    });
+
+    // En çok harcama yapılan gün
+    let maxDay = null, maxVal = 0;
+    for (const d in dailyTotals) {
+      if (Math.abs(dailyTotals[d]) > maxVal) {
+        maxVal = Math.abs(dailyTotals[d]);
+        maxDay = d;
+      }
+    }
+
+    // En çok harcama yapılan gün bilgisi ve o güne ait tür-tutar listesi
+    if (maxDay) {
+      document.getElementById('maxDayInfo').innerHTML =
+        `<b>${maxDay}</b> tarihinde toplam <b>${maxVal.toLocaleString('tr-TR', {minimumFractionDigits:2, maximumFractionDigits:2})} TL</b> harcama yapılmış.`;
+      // O güne ait işlemleri türlerine göre grupla
+      const dayTransactions = transactions.filter(t => t.date === maxDay && parseFloat(t.amount) < 0);
+      const dayTypeTotals = {};
+      dayTransactions.forEach(t => {
+        const type = t.type;
+        const amount = parseFloat(t.amount);
+        dayTypeTotals[type] = (dayTypeTotals[type] || 0) + amount;
+      });
+      if (Object.keys(dayTypeTotals).length > 0) {
+        let html = '<div style="margin-top:10px; font-size:1rem;">';
+        Object.entries(dayTypeTotals).forEach(([type, val]) => {
+          html += `<div style='color:#c00; margin-bottom:2px;'>${type}: - ${Math.abs(val).toLocaleString('tr-TR', {minimumFractionDigits:2, maximumFractionDigits:2})} TL</div>`;
+        });
+        html += '</div>';
+        document.getElementById('maxDayInfo').innerHTML += html;
+      }
+      // Tabloyu da vurgula
+      Array.from(document.querySelectorAll('#transactionsTable tbody tr')).forEach(row => {
+        if (row.cells[0].innerText === maxDay) row.classList.add('highlight');
+      });
+    }
+
+    // Chart.js: Günlük toplam harcama
+    new Chart(document.getElementById('dailyChart').getContext('2d'), {
+      type: 'bar',
+      data: {
+        labels: dailyLabels,
+        datasets: [{
+          label: 'Toplam Harcama',
+          data: dailyData,
+          backgroundColor: '#6c63ff',
+        }]
+      },
+      options: {
+        plugins: { legend: { display: false } },
+        scales: { x: { ticks: { maxRotation: 90, minRotation: 45 } } }
+      }
+    });
+
+    // Chart.js: Türlere göre harcama
+    new Chart(document.getElementById('typeChart').getContext('2d'), {
+      type: 'pie',
+      data: {
+        labels: typeLabels,
+        datasets: [{
+          data: typeData,
+          backgroundColor: [
+            '#6c63ff', '#ff6384', '#36a2eb', '#ffce56', '#4bc0c0', '#9966ff', '#ff9f40', '#c45850'
+          ]
+        }]
+      },
+      options: {
+        plugins: { legend: { position: 'bottom' } }
+      }
+    });
+
+    // Tablo sıralama ve arama (önceki kod)
+    const table = document.getElementById('transactionsTable');
+    const headers = table.querySelectorAll('th');
+    let sortKey = null;
+    let sortDir = 1;
+    let originalRows = Array.from(table.tBodies[0].rows);
+
+    headers.forEach(th => {
+      th.addEventListener('click', () => {
+        const key = th.getAttribute('data-key');
+        if (sortKey === key) {
+          sortDir = -sortDir;
+        } else {
+          sortKey = key;
+          sortDir = 1;
+        }
+        headers.forEach(h => h.classList.remove('sorted-asc', 'sorted-desc'));
+        th.classList.add(sortDir === 1 ? 'sorted-asc' : 'sorted-desc');
+        sortTable(key, sortDir);
+      });
+    });
+
+    function sortTable(key, dir) {
+      const idx = Array.from(headers).findIndex(h => h.getAttribute('data-key') === key);
+      let rows = Array.from(table.tBodies[0].rows);
+      rows.sort((a, b) => {
+        let va = a.cells[idx].innerText;
+        let vb = b.cells[idx].innerText;
+        if (key === 'amount') {
+          va = parseFloat(va.replace(/[^\d.-]/g, ''));
+          vb = parseFloat(vb.replace(/[^\d.-]/g, ''));
+        }
+        if (key === 'date') {
+          const toISO = s => s.split('.').reverse().join('-');
+          va = toISO(va);
+          vb = toISO(vb);
+        }
+        if (va < vb) return -1 * dir;
+        if (va > vb) return 1 * dir;
+        return 0;
+      });
+      rows.forEach(row => table.tBodies[0].appendChild(row));
+    }
+
+    document.getElementById('searchInput').addEventListener('input', function() {
+      const val = this.value.toLowerCase();
+      table.tBodies[0].innerHTML = '';
+      originalRows.forEach(row => {
+        if (Array.from(row.cells).some(cell => cell.innerText.toLowerCase().includes(val))) {
+          table.tBodies[0].appendChild(row);
+        }
+      });
+    });
+
+    // PDF olarak indir butonu
+    document.getElementById('downloadPdfBtn').addEventListener('click', function() {
+      const btn = document.getElementById('downloadPdfBtn');
+      btn.style.display = 'none';
+      setTimeout(async () => {
+        // Tarih aralığı için min-max tarihleri bul
+        const transactions = <%- JSON.stringify(transactions) %>;
+        let minDate = '', maxDate = '';
+        if (transactions.length > 0) {
+          const dates = transactions.map(t => t.date).sort((a,b) => {
+            const toISO = s => s.split('.').reverse().join('-');
+            return toISO(a) < toISO(b) ? -1 : 1;
+          });
+          minDate = dates[0];
+          maxDate = dates[dates.length-1];
+        }
+        const summarySection = document.getElementById('summarySection');
+        const tableSection = document.getElementById('tableSection');
+        // 1. summarySection'ı ilk sayfa olarak ekle
+        const summaryCanvas = await html2canvas(summarySection, { scale: 2 });
+        const summaryImg = summaryCanvas.toDataURL('image/png');
+        const pdf = new window.jspdf.jsPDF({ orientation: 'p', unit: 'pt', format: 'a4' });
+        const pageWidth = pdf.internal.pageSize.getWidth();
+        const pageHeight = pdf.internal.pageSize.getHeight();
+        const imgWidth = pageWidth - 40;
+        let imgHeight = summaryCanvas.height * imgWidth / summaryCanvas.width;
+        pdf.addImage(summaryImg, 'PNG', 20, 20, imgWidth, imgHeight);
+        // 2. tableSection'ı çoklu sayfa olarak ekle
+        const tableCanvas = await html2canvas(tableSection, { scale: 2 });
+        const tableImg = tableCanvas.toDataURL('image/png');
+        let tImgHeight = tableCanvas.height * imgWidth / tableCanvas.width;
+        let position = 20 + imgHeight + 20;
+        if (position + tImgHeight > pageHeight) {
+          pdf.addPage();
+          position = 20;
+        }
+        let remainingHeight = tImgHeight;
+        let renderedHeight = 0;
+        while (remainingHeight > 0) {
+          pdf.addImage(tableImg, 'PNG', 20, position, imgWidth, tImgHeight);
+          renderedHeight += pageHeight;
+          remainingHeight -= pageHeight;
+          if (remainingHeight > 0) {
+            pdf.addPage();
+            position = 20;
+          }
+        }
+        const fileName = `${minDate}-${maxDate}-en-para-rapor.pdf`;
+        pdf.save(fileName);
+        btn.style.display = '';
+      }, 100);
+    });
+
+    // Tema toggle
+    const themeToggle = document.getElementById('themeToggle');
+    function setTheme(dark) {
+      if (dark) {
+        document.body.classList.add('dark-theme');
+        themeToggle.textContent = '☀️';
+      } else {
+        document.body.classList.remove('dark-theme');
+        themeToggle.textContent = '🌙';
+      }
+    }
+    // İlk yüklemede localStorage'dan oku
+    setTheme(localStorage.getItem('theme') === 'dark');
+    themeToggle.onclick = () => {
+      const isDark = !document.body.classList.contains('dark-theme');
+      setTheme(isDark);
+      localStorage.setItem('theme', isDark ? 'dark' : 'light');
+    };
+
+    // Chart.js karanlık tema desteği
+    function updateChartsForTheme() {
+      const isDark = document.body.classList.contains('dark-theme');
+      Chart.defaults.color = isDark ? '#f3f3f3' : '#444';
+      Chart.defaults.plugins.legend.labels.color = isDark ? '#f3f3f3' : '#444';
+      Chart.defaults.scales = Chart.defaults.scales || {};
+      Chart.defaults.scales.x = Chart.defaults.scales.x || {};
+      Chart.defaults.scales.y = Chart.defaults.scales.y || {};
+      Chart.defaults.scales.x.ticks = { color: isDark ? '#f3f3f3' : '#444' };
+      Chart.defaults.scales.y.ticks = { color: isDark ? '#f3f3f3' : '#444' };
+    }
+    updateChartsForTheme();
+
+    // Tema değişince Chart.js renklerini güncelle
+    themeToggle.addEventListener('click', () => {
+      updateChartsForTheme();
+      // Grafikleri yeniden çizmek için sayfayı yenilemeye gerek yok, ama yeni grafikler için renkler güncellenir.
+    });
+
+    // HEATMAP oluştur
+    function lerpColor(a, b, t) {
+      // a, b: hex renk, t: 0-1
+      const ah = a.replace('#',''), bh = b.replace('#','');
+      const ar = parseInt(ah.substring(0,2),16), ag = parseInt(ah.substring(2,4),16), ab = parseInt(ah.substring(4,6),16);
+      const br = parseInt(bh.substring(0,2),16), bg = parseInt(bh.substring(2,4),16), bb = parseInt(bh.substring(4,6),16);
+      const rr = Math.round(ar + (br-ar)*t), rg = Math.round(ag + (bg-ag)*t), rb = Math.round(ab + (bb-ab)*t);
+      return `rgb(${rr},${rg},${rb})`;
+    }
+    const heatmapDiv = document.getElementById('heatmap');
+    if (dailyLabels.length > 0) {
+      const min = Math.min(...dailyData), max = Math.max(...dailyData);
+      const colorA = '#ede7ff', colorB = '#6c63ff';
+      // Tooltip div'i oluştur
+      let tooltip = document.createElement('div');
+      tooltip.className = 'heatmap-tooltip';
+      document.body.appendChild(tooltip);
+
+      dailyLabels.forEach((date, i) => {
+        const val = dailyData[i];
+        const t = max === min ? 1 : (val-min)/(max-min);
+        const color = lerpColor(colorA, colorB, t);
+        const cell = document.createElement('div');
+        cell.className = 'heatmap-cell';
+        cell.style.background = color;
+        // O güne ait harcamaları bul
+        const dayTxs = transactions.filter(t => t.date === date && parseFloat(t.amount) < 0);
+        let label = `<b>${date}</b><br>Toplam: <b>${val.toLocaleString('tr-TR', {minimumFractionDigits:2, maximumFractionDigits:2})} TL</b>`;
+        if (dayTxs.length > 0) {
+          label += '<br>' + dayTxs.map(tx => `<span class='heatmap-type'>${tx.type}:</span> <i>${tx.description}</i> <b>(${parseFloat(tx.amount).toLocaleString('tr-TR', {minimumFractionDigits:2, maximumFractionDigits:2})} TL)</b>`).join('<br>');
+        }
+        cell.addEventListener('mouseenter', function(e) {
+          tooltip.innerHTML = label;
+          tooltip.style.display = 'block';
+          // Konumlandırma
+          const rect = cell.getBoundingClientRect();
+          const scrollY = window.scrollY || window.pageYOffset;
+          const scrollX = window.scrollX || window.pageXOffset;
+          let top = rect.top + scrollY - tooltip.offsetHeight - 12;
+          if (top < 0) top = rect.bottom + scrollY + 12;
+          let left = rect.left + scrollX + rect.width/2 - tooltip.offsetWidth/2;
+          if (left < 0) left = 8;
+          if (left + tooltip.offsetWidth > window.innerWidth) left = window.innerWidth - tooltip.offsetWidth - 8;
+          tooltip.style.top = top + 'px';
+          tooltip.style.left = left + 'px';
+          setTimeout(() => tooltip.style.opacity = 0.98, 10);
+        });
+        cell.addEventListener('mouseleave', function() {
+          tooltip.style.display = 'none';
+          tooltip.style.opacity = 0;
+        });
+        heatmapDiv.appendChild(cell);
+      });
+    }
+  </script>
+</body>
+</html> 
