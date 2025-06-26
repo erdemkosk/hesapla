@@ -125,17 +125,50 @@
     @media (max-width: 600px) {
       .container {
         max-width: 98vw;
-        padding: 18px 4vw 18px 4vw;
-        border-radius: 12px;
+        padding: 12vw 2vw 8vw 2vw;
+        border-radius: 10px;
       }
       .logo-img {
-        width: 80px;
-        height: 80px;
-        border-radius: 16px;
+        width: 64px;
+        height: 64px;
+        border-radius: 12px;
+        margin-bottom: 10px;
+      }
+      .subtitle {
+        font-size: 0.93rem;
+        margin-bottom: 10px;
+      }
+      form {
+        gap: 10px;
+      }
+      input[type="file"] {
+        font-size: 0.95rem;
+        padding: 8px 4px;
+        border-radius: 8px;
       }
       button {
         font-size: 1rem;
-        padding: 14px 0;
+        padding: 12px 0;
+        border-radius: 8px;
+      }
+      .accordion {
+        margin-top: 14px;
+        border-radius: 8px;
+        box-shadow: 0 1px 4px #0001;
+      }
+      .accordion-header {
+        font-size: 0.98rem;
+        padding: 10px 10px;
+        border-radius: 8px 8px 0 0;
+      }
+      .accordion-body {
+        font-size: 0.95rem;
+        padding: 10px 10px 12px 10px;
+        border-radius: 0 0 8px 8px;
+      }
+      .footer {
+        font-size: 0.89rem;
+        margin-bottom: 4px;
       }
     }
     .footer {
@@ -164,9 +197,6 @@
     .footer-link:hover {
       color: #4b3be0;
       text-decoration: underline;
-    }
-    @media (max-width: 600px) {
-      .footer { font-size: 0.93rem; }
     }
   </style>
 </head>
